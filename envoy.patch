@@ -1,0 +1,59 @@
+diff --git a/bazel/envoy_build_system.bzl b/bazel/envoy_build_system.bzl
+index 9b24616d..835d5778 100644
+--- a/bazel/envoy_build_system.bzl
++++ b/bazel/envoy_build_system.bzl
+@@ -27,7 +27,7 @@ def envoy_copts(repository, test = False):
+     }) + select({
+         # TCLAP command line parser needs this to support int64_t/uint64_t
+         "@bazel_tools//tools/osx:darwin": ["-DHAVE_LONG_LONG"],
+-        "//conditions:default": [],
++        "//conditions:default": ["-DHAVE_LONG_LONG"],
+     }) + envoy_select_hot_restart(["-DENVOY_HOT_RESTART"], repository) + \
+         envoy_select_perf_annotation(["-DENVOY_PERF_ANNOTATION"]) + \
+         envoy_select_google_grpc(["-DENVOY_GOOGLE_GRPC"], repository)
+diff --git a/source/exe/signal_action.cc b/source/exe/signal_action.cc
+index 43bc2186..cc72b109 100644
+--- a/source/exe/signal_action.cc
++++ b/source/exe/signal_action.cc
+@@ -19,8 +19,9 @@ void SignalAction::sigHandler(int sig, siginfo_t* info, void* context) {
+ #elif defined(__APPLE__) && defined(__x86_64__)
+     error_pc = reinterpret_cast<void*>(ucontext->uc_mcontext->__ss.__rip);
+ #else
+-#warning "Please enable and test PC retrieval code for your arch in signal_action.cc"
++// #warning "Please enable and test PC retrieval code for your arch in signal_action.cc"
+ // x86 Classic: reinterpret_cast<void*>(ucontext->uc_mcontext.gregs[REG_EIP]);
++    error_pc = reinterpret_cast<void*>(ucontext->uc_mcontext.arm_pc);
+ // ARM: reinterpret_cast<void*>(ucontext->uc_mcontext.arm_pc);
+ // PPC: reinterpret_cast<void*>(ucontext->uc_mcontext.regs->nip);
+ #endif
+diff --git a/source/server/hot_restart_impl.cc b/source/server/hot_restart_impl.cc
+index 14562b29..aa03b6d7 100644
+--- a/source/server/hot_restart_impl.cc
++++ b/source/server/hot_restart_impl.cc
+@@ -109,7 +109,7 @@ void SharedMemory::initializeMutex(pthread_mutex_t& mutex) {
+   pthread_mutex_init(&mutex, &attribute);
+ }
+ 
+-std::string SharedMemory::version(size_t max_num_stats, size_t max_stat_name_len) {
++std::string SharedMemory::version(uint64_t max_num_stats, uint64_t max_stat_name_len) {
+   return fmt::format("{}.{}.{}.{}", VERSION, sizeof(SharedMemory), max_num_stats,
+                      max_stat_name_len);
+ }
+@@ -485,7 +485,7 @@ std::string HotRestartImpl::version() {
+ 
+ // Called from envoy --hot-restart-version -- needs to instantiate a RawStatDataSet so it
+ // can generate the version string.
+-std::string HotRestartImpl::hotRestartVersion(size_t max_num_stats, size_t max_stat_name_len) {
++std::string HotRestartImpl::hotRestartVersion(uint64_t max_num_stats, uint64_t max_stat_name_len) {
+   const SharedMemoryHashSetOptions options = sharedMemHashOptions(max_num_stats);
+   const size_t bytes = RawStatDataSet::numBytes(options);
+   std::unique_ptr<uint8_t[]> mem_buffer_for_dry_run_(new uint8_t[bytes]);
+@@ -494,7 +494,7 @@ std::string HotRestartImpl::hotRestartVersion(size_t max_num_stats, size_t max_s
+   return versionHelper(max_num_stats, max_stat_name_len, stats_set);
+ }
+ 
+-std::string HotRestartImpl::versionHelper(size_t max_num_stats, size_t max_stat_name_len,
++std::string HotRestartImpl::versionHelper(uint64_t max_num_stats, uint64_t max_stat_name_len,
+                                           RawStatDataSet& stats_set) {
+   return SharedMemory::version(max_num_stats, max_stat_name_len) + "." + stats_set.version();
+ }

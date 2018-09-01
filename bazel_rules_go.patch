@@ -1,0 +1,33 @@
+diff --git a/go/private/repository_tools.bzl b/go/private/repository_tools.bzl
+index 4ef1d85..ccc8462 100644
+--- a/go/private/repository_tools.bzl
++++ b/go/private/repository_tools.bzl
+@@ -58,6 +58,7 @@ def _go_repository_tools_impl(ctx):
+   env = {
+     'GOROOT': str(go_tool.dirname.dirname),
+     'GOPATH': str(ctx.path('')),
++    'PATH' : ctx.os.environ["PATH"],
+   }
+ 
+   # build all the repository tools
+diff --git a/go/private/sdk.bzl b/go/private/sdk.bzl
+index b830f4f..9f496f7 100644
+--- a/go/private/sdk.bzl
++++ b/go/private/sdk.bzl
+@@ -28,13 +28,15 @@ go_host_sdk = repository_rule(
+ def _go_download_sdk_impl(ctx):
+   if ctx.os.name == 'linux':
+     host = "linux_amd64"
+-    res = ctx.execute(['uname', '-p'])
++    res = ctx.execute(['uname', '-m'])
+     if res.return_code == 0:
+       uname = res.stdout.strip()
+       if uname == 's390x':
+         host = "linux_s390x"
+       elif uname == 'ppc64le':
+         host = "linux_ppc64le"
++      elif uname == 'armv7l':
++        host = "linux_armv6l"
+     # Default to amd64 when uname doesn't return a known value.
+   elif ctx.os.name == 'mac os x':
+     host = "darwin_amd64"
